@@ -1,0 +1,33 @@
+{
+    "files.associations": {
+        "*.sqlbook": "sql",
+        "*.ndjson": "jsonl",
+        "*.dbclient-js": "javascript",
+        "transaction.h": "c",
+        "utxo.h": "c",
+        "time.h": "c",
+        "blockchain.h": "c",
+        "sha.h": "c",
+        "vector.h": "c",
+        "block.h": "c",
+        "red_black_tree.h": "c",
+        "array": "c",
+        "atomic": "c",
+        "chrono": "c",
+        "deque": "c",
+        "list": "c",
+        "string": "c",
+        "unordered_map": "c",
+        "unordered_set": "c",
+        "vector": "c",
+        "iterator": "c",
+        "memory_resource": "c",
+        "optional": "c",
+        "string_view": "c",
+        "format": "c",
+        "initializer_list": "c",
+        "span": "c",
+        "stop_token": "c",
+        "type_traits": "c"
+    }
+}
