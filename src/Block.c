@@ -40,13 +40,16 @@ void Block__Hash(Block *block, char *output) {
     output[64] = '\0';  // Null-terminate
 }
 
-Transaction *Blockchain__CreateCoinbaseTransaction(const char *miner_pubkey) {
+Transaction *Blockchain__CreateCoinbaseTransaction(const char *miner_pubkey, const char *coinbase) {
+
     vector(TxInput) *inputs = newT(vector, TxInput, 0);  // empty inputs
     vector(TxOutput) *outputs = newT(vector, TxOutput, 0);
 
+    inputs->push_back(inputs, TxInput__CreateCoinbaseTransaction(coinbase));
     outputs->push_back(outputs, TxOutput__Create(miner_pubkey, BLOCKCHAIN__COINBASE_REWARD));
 
-    return Transaction__Create(inputs, outputs);
+    Transaction *coinbase_tx = Transaction__Create(inputs, outputs);
+    return coinbase_tx;
 }
 
 void Block__Mine(Block *block, char *miner_pubkey) {
@@ -56,10 +59,13 @@ void Block__Mine(Block *block, char *miner_pubkey) {
     memset(prefix, '0', difficulty);
     prefix[difficulty] = '\0';
 
-    block->transactions->push_front(block->transactions, Blockchain__CreateCoinbaseTransaction(miner_pubkey));
+    block->transactions->push_front(block->transactions, Blockchain__CreateCoinbaseTransaction(miner_pubkey, block->header.previous_hash));
     char *merkle_root = compute_merkle_root(block->transactions);
     strcpy(block->header.merkle_root, merkle_root);
     free(merkle_root);
+    for (int i = 0; i < block->transactions->get_size(block->transactions); i++) {
+        printf("Transaction hash: %s\n", block->transactions->at(block->transactions, i)->txid);
+    }
     while (strncmp(block->header.hash, prefix, difficulty) != 0) {
         (*block->header.nonce)++;
         Block__Hash(block, block->header.hash);
@@ -79,15 +85,30 @@ bool Block__MeetDifficulty(Block *block) {
 
 
 bool Block__VerifyCoinbaseTransaction(Block *block) {
+    if (!block) {
+        printf("❌ Error: Block is NULL!\n");
+        return false;
+    }
+
     if (len(block->transactions) == 0) {
         printf("❌ Error: No transactions in block!\n");
         return false;
     }
 
     Transaction *coinbase_tx = block->transactions->at(block->transactions, 0);
-    if (len(coinbase_tx->inputs) != 0) {
+    if (len(coinbase_tx->inputs) != 1) {
         printf("❌ Error: Coinbase transaction should have no inputs!\n");
         return false;
+    } else {
+        TxInput *coinbase_input = value_at(coinbase_tx->inputs, 0);
+        if (strlen(coinbase_input->prev_txid) != 0) {
+            printf("❌ Error: Coinbase transaction should have no previous transaction ID!\n");
+            return false;
+        }
+        if (coinbase_input->coinbase == NULL) {
+            printf("❌ Error: Coinbase transaction should have coinbase data!\n");
+            return false;
+        }
     }
 
     return true;
@@ -97,6 +118,7 @@ bool Block__Verify(Blockchain *chain, Block *block, Block *prev_block)
 {
     char hash[65];
     Block__Hash(block, hash);
+
 
     if (!Block__VerifyCoinbaseTransaction(block)) {
         printf("❌ Error: Coinbase transaction is invalid!\n");
@@ -117,9 +139,10 @@ bool Block__Verify(Blockchain *chain, Block *block, Block *prev_block)
         return false;
     }
 
-    for (int i = 0; i < len(block->transactions); i++) {
+    for (int i = 1; i < len(block->transactions); i++) { // Start from 1 to skip the coinbase transaction
+        printf("Appending new block with index \n");
         Transaction *transaction = block->transactions->at(block->transactions, i);
-        if (!Transaction__Verify(chain, transaction) && i != 0) {
+        if (!Transaction__Verify(chain, transaction)) {
             printf("❌ Error: Transaction %d is invalid!\n", i);
             return false;
         }
@@ -163,7 +186,6 @@ Block* Block__Create(Block *prev_block, int difficulty, vector(Transaction) *tra
 
 
     Block__Mine(new_block, (char *)miner_pubkey);
-
     return new_block;
 }
 
@@ -177,7 +199,7 @@ void Block__Append(Blockchain *chain, int difficulty, vector(Transaction) *trans
             printf("❌ Error: New block is invalid!\n");
             return;
         }
-
+        Blockchain__AddToUTXO_map(chain, new_block->transactions);
         chain->head = new_block;
     } else {
         Block *last = chain->head;
@@ -193,6 +215,7 @@ void Block__Append(Blockchain *chain, int difficulty, vector(Transaction) *trans
             return;
         }
 
+        Blockchain__AddToUTXO_map(chain, new_block->transactions);
         last->header.next = new_block;
     }
 }

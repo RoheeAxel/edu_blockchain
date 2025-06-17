@@ -5,6 +5,21 @@
 #include "UTXO.h"
 #include "Transaction.h"
 
+TxInput *TxInput__CreateCoinbaseTransaction(const char *coinbase)
+{
+    TxInput *input = malloc(sizeof(TxInput));
+    if (!input) return NULL;
+
+    memset(input->prev_txid, 0, sizeof(input->prev_txid)); // Initialize to zero
+    input->output_index = 0; // Coinbase transaction has no output index
+    memset(input->signature, 0, sizeof(input->signature)); // Initialize signature to zero
+    strncpy(input->coinbase, coinbase, sizeof(input->coinbase) - 1);
+    input->coinbase[sizeof(input->coinbase) - 1] = '\0'; // Ensure null-termination
+
+    return input;
+}
+
+
 TxInput *TxInput__Create(const char *prev_txid, int output_index)
 {
     TxInput *input = malloc(sizeof(TxInput));
@@ -14,7 +29,7 @@ TxInput *TxInput__Create(const char *prev_txid, int output_index)
     input->prev_txid[sizeof(input->prev_txid) - 1] = '\0'; // Ensure null-termination
     input->output_index = output_index;
     memset(input->signature, 0, sizeof(input->signature)); // Initialize signature to zero
-
+    memset(input->coinbase, 0, sizeof(input->coinbase)); // Initialize coinbase to zero
     return input;
 }
 
@@ -28,6 +43,8 @@ size_t TxInput__Serialize(TxInput *input, char *output)
     offset += sizeof(int);
     memcpy(output + offset, input->signature, sizeof(input->signature));
     offset += sizeof(input->signature);
+    memcpy(output + offset, input->coinbase, sizeof(input->coinbase));
+    offset += sizeof(input->coinbase);
     return offset;
 }
 
@@ -42,6 +59,11 @@ void TxInput__Print(TxInput *input)
     for (int i = 0; i < 256; ++i)
         printf("%02x", (unsigned char)input->signature[i]);
     printf("\n");
+    if (strlen(input->coinbase) > 0) {
+        printf("  Coinbase Transaction: %s\n", input->coinbase);
+    } else {
+        printf("  Not a Coinbase Transaction\n");
+    }
 }
 
 

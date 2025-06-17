@@ -75,6 +75,7 @@ vector(Transaction) *simulate_transactions(EVP_PKEY *pkey_1, EVP_PKEY *pkey_2, E
         memset(prev_txid, 0, sizeof(prev_txid));
     }
 
+
     for (int i = 0; i < num_transactions; i++) {
         vector(TxInput) *input_1 = newT(vector, TxInput, 0);
         vector(TxOutput) *output_1 = newT(vector, TxOutput, 0);
@@ -97,6 +98,21 @@ vector(Transaction) *simulate_transactions(EVP_PKEY *pkey_1, EVP_PKEY *pkey_2, E
     printf("Generated %d random transactions successfully!\n", num_transactions);
     return transactions;
 }
+
+void print_utxo_map(txid_t_int_vector_node *node) {
+    if (node == NULL) return;
+    print_utxo_map(node->left);
+    printf("Key: %s, Value: [", node->key);
+    for (int i = 0; i < node->value->Size; i++) {
+        printf("%d", *node->value->at(node->value, i));
+        if (i < node->value->Size - 1) {
+            printf(", ");
+        }
+    }
+    printf("]\n");
+    print_utxo_map(node->right);
+}
+
 int main() {
     OpenSSL_add_all_algorithms();
 
@@ -142,6 +158,8 @@ int main() {
         deleteT(vector, Transaction, all_transactions[i]);
     }
 
+    print_utxo_map(blockchain->utxo_map->root);
+    printf("UTXO map size: %d\n", blockchain->utxo_map->size);
 
     EVP_PKEY_free(pkey_1);
     EVP_PKEY_free(pkey_2);

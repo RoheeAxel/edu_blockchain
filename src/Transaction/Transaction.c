@@ -4,13 +4,14 @@
 #include <openssl/sha.h>
 #include "Transaction.h"
 #include "Block.h"
+#include "Blockchain.h"
 
 
 void Transaction__Hash(Transaction *tx, char *output) {
     if (!tx || !output) return;
 
     // Estimate the max size needed (inputs + outputs)
-    size_t estimated_size = len(tx->inputs) * (65 + sizeof(int) + 256) +
+    size_t estimated_size = len(tx->inputs) * (65 + sizeof(int) + 256 + 65) +
                             len(tx->outputs) * (65 + sizeof(int));
 
     unsigned char *data = malloc(estimated_size);
@@ -78,13 +79,37 @@ bool Transaction__Verify(Blockchain *chain, Transaction *tx) {
 
     for (size_t i = 0; i < len(tx->inputs); ++i) {
 
+        if (strlen(value_at(tx->inputs, i)->coinbase) != 0 && len(tx->inputs) == 1) {
+            continue;
+        }
+
         if (value_at(tx->inputs, i)->signature == NULL) {
             printf("❌ Error: Input %zu signature is NULL!\n", i);
             return false;
         }
+
         Transaction *prev_tx = Blockchain__FindTransactionByID(chain, value_at(tx->inputs, i)->prev_txid);
         if (prev_tx == NULL) {
             printf("❌ Error: Input %zu prev_txid with id %s not found in blockchain!\n", i, value_at(tx->inputs, i)->prev_txid);
+            return false;
+        }
+
+        // Check if already spent
+        txid_t_int_vector_node *spent_tx = chain->utxo_map->get(chain->utxo_map, value_at(tx->inputs, i)->prev_txid);
+        if (spent_tx != NULL) {
+            if (spent_tx->value == NULL) {
+                printf("❌ Error: Input %zu spent_tx->value is NULL!\n", i);
+                return false;
+            }
+            printf("Chimpanzini bananini %d\n", len(spent_tx->value));
+            for (int j = 0; j < spent_tx->value->Size; j++) {
+                printf("Checking for j: %d\n", j);
+                if (*value_at(spent_tx->value, j) == value_at(tx->inputs, i)->output_index) {
+                    printf("❌ Error: Input %zu already spent!\n", i);
+                    return false;
+                }
+            }
+            printf("❌ Transaction %s already spent!\n", value_at(tx->inputs, i)->prev_txid);
             return false;
         }
 
@@ -118,7 +143,17 @@ bool Transaction__Verify(Blockchain *chain, Transaction *tx) {
     }
 
     if (total_input_amount < total_output_amount) {
+        printf("Tx txid: %s\n", tx->txid);
+        printf("❌ Error: Total input amount (%d) is less than total output amount (%d)!\n", total_input_amount, total_output_amount);
+        printf("Tx inputs:\n");
+        for (size_t i = 0; i < len(tx->inputs); ++i) {
+            TxInput *input = value_at(tx->inputs, i);
+            printf("Input %zu: prev_txid: %s, output_index: %d\n", i, input->prev_txid, input->output_index);
+        }
+
         Block *block = Blockchain__FindBlockByTransactionId(chain, tx->txid);
+        printf("HAAA\n");
+
         if (!Block__VerifyCoinbaseTransaction(block)) {
             printf("❌ Error: Coinbase transaction is invalid!\n");
             return false;

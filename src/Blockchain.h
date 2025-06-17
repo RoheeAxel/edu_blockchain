@@ -4,6 +4,8 @@
 #include "vector.h"
 
 #pragma once
+#include "Transaction/UTXO_map.h"
+
 
 #define BLOCKCHAIN__TARGET_TIME 5 // seconds
 #define BLOCKCHAIN__DIFFICULTY_ADJUST_INTERVAL 5
@@ -13,6 +15,7 @@ typedef struct Blockchain {
     Block *head;
     int size;
     int difficulty;
+    UTXO_map utxo_map;
 } Blockchain;
 
 Blockchain *Blockchain__Create(int difficulty);
@@ -23,5 +26,6 @@ Transaction *Blockchain__FindTransactionByID(Blockchain *chain, const char *txid
 Block *Blockchain__FindBlockByTransactionId(Blockchain *chain, const char *txid);
 void Blockchain__IncreaseDifficulty(Blockchain *blockchain, Block *current);
 void Blockchain__Append(Blockchain *blockchain, vector(Transaction) * transactions, const char *miner_pubkey);
+void Blockchain__AddToUTXO_map(Blockchain *blockchain, vector(Transaction) *transactions);
 
 void Blockchain__Print(Blockchain *blockchain);

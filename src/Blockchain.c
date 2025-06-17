@@ -50,6 +50,7 @@ Blockchain *Blockchain__Create(int difficulty)
 
     blockchain->head = NULL;
     blockchain->difficulty = difficulty;
+    blockchain->utxo_map = new_std__map(txid_t, int_vector)(txid_t__compare);
 
     return blockchain;
 }
@@ -97,7 +98,9 @@ Block *Blockchain__FindBlockByTransactionId(Blockchain *chain, const char *txid)
     while (current) {
         for (int i = 0; i < len(current->transactions); i++) {
             Transaction *tx = value_at(current->transactions, i);
+            printf("Searching txid: %s, with %s\n", txid, tx->txid);
             if (strcmp(tx->txid, txid) == 0) {
+                printf("Found txid: %s\n", txid);
                 return current;
             }
         }
@@ -163,6 +166,42 @@ void Blockchain__Append(Blockchain *blockchain, vector(Transaction) * transactio
         blockchain->size++;
     }
     blockchain->size++;  // Include the head block
+}
+
+void Blockchain__AddToUTXO_map(Blockchain *blockchain, vector(Transaction) *transactions)
+{
+    printf("Adding to UTXO map...\n");
+    for (int i = 0; i < len(transactions); i++) {
+        printf("Adding to UTXO map... 1 \n");
+
+        Transaction *tx = value_at(transactions, i);
+        for (int j = 0; j < len(tx->inputs); j++) {
+            printf("Adding to UTXO map... 2 \n");
+
+            TxInput *input = value_at(tx->inputs, j);
+            if (input->coinbase[0] != '\0') {
+                continue;  // Skip coinbase inputs
+            }
+            int index = input->output_index;
+            // txid_t txid = malloc(65);
+            char *txid = malloc(65);
+            memcpy(txid, input->prev_txid, 65);
+            printf("Here just before the insertion %s %d\n", txid, index);
+            if (!blockchain->utxo_map->get(blockchain->utxo_map, txid)) {
+                printf("Adding to UTXO map... 3  when no previous\n");
+
+                vector(int) *index_vector = newT(vector, int, 0);
+                index_vector->push_back(index_vector, &index);
+                blockchain->utxo_map->insert(blockchain->utxo_map, txid, index_vector);
+                printf("Size of the vector: %d\n", len(index_vector));
+            } else {
+                printf("Adding to UTXO map... 4 when previous\n");
+
+                vector(int) *index_vector = blockchain->utxo_map->get(blockchain->utxo_map, txid);
+                index_vector->push_back(index_vector, &index);
+            }
+        }
+    }
 }
 
 
